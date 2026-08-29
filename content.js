@@ -92,21 +92,20 @@ function onClick(e) {
       blockedSelectors.push(selector);
       chrome.storage.local.set({ [hostname]: blockedSelectors }, () => {
         updateStylesheet();
+        // Notify popup/background that selection is complete
+        chrome.runtime.sendMessage({ action: 'selectionComplete', selector: selector });
       });
     }
   }
   
-  // Clean highlight and stop selection
+  // Clean highlight of the selected element
   if (hoveredElement) {
     hoveredElement.style.outline = originalOutline;
     hoveredElement.style.cursor = originalCursor;
     hoveredElement = null;
   }
   
-  disableSelectionMode();
-  
-  // Notify popup/background that selection is complete
-  chrome.runtime.sendMessage({ action: 'selectionComplete', selector: selector });
+  // Selection mode remains active for continuous clicking
 }
 
 function generateUniqueSelector(el) {
@@ -163,6 +162,14 @@ function generateUniqueSelector(el) {
   return path.join(' > ');
 }
 
+function onKeyDown(e) {
+  if (e.key === 'Escape' && isSelecting) {
+    e.preventDefault();
+    e.stopPropagation();
+    disableSelectionMode();
+  }
+}
+
 function enableSelectionMode() {
   isSelecting = true;
   document.addEventListener('mouseover', onMouseOver, true);
@@ -170,6 +177,7 @@ function enableSelectionMode() {
   document.addEventListener('click', onClick, true);
   document.addEventListener('mousedown', preventDefaultAction, true);
   document.addEventListener('mouseup', preventDefaultAction, true);
+  document.addEventListener('keydown', onKeyDown, true);
   
   // Inject CSS to disable pointer events on iframes so they can be selected as elements
   iframeStyle = document.createElement('style');
@@ -184,11 +192,15 @@ function disableSelectionMode() {
   document.removeEventListener('click', onClick, true);
   document.removeEventListener('mousedown', preventDefaultAction, true);
   document.removeEventListener('mouseup', preventDefaultAction, true);
+  document.removeEventListener('keydown', onKeyDown, true);
   
   if (iframeStyle) {
     iframeStyle.remove();
     iframeStyle = null;
   }
+  
+  // Notify runtime that selection mode has stopped
+  chrome.runtime.sendMessage({ action: 'selectionDisabled' });
 }
 
 // Listen for messages from popup
@@ -199,6 +211,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.action === 'stopSelection') {
     disableSelectionMode();
     sendResponse({ status: 'stopped' });
+  } else if (request.action === 'getSelectionState') {
+    sendResponse({ isSelecting: isSelecting });
   } else if (request.action === 'getBlockedRules') {
     sendResponse({ rules: blockedSelectors });
   } else if (request.action === 'removeRule') {

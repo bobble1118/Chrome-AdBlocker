@@ -8,6 +8,9 @@
   "selectBtn": {
     "message": "Select Element to Block"
   },
+  "stopSelectBtn": {
+    "message": "Stop Selection Mode (Esc)"
+  },
   "blockedTitle": {
     "message": "Blocked on this Domain"
   },

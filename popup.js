@@ -87,17 +87,42 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   refreshRules();
   
-  // Start element selection
-  selectBtn.onclick = () => {
-    chrome.tabs.sendMessage(tab.id, { action: 'startSelection' }, (response) => {
-      if (chrome.runtime.lastError || !response) {
-        alert(getMsg('refreshWarning'));
-        return;
-      }
-      // Close the popup so user can select on the page directly
-      window.close();
-    });
-  };
+  let isSelectingMode = false;
+
+  function updateSelectButtonState(isSelecting) {
+    isSelectingMode = isSelecting;
+    if (isSelecting) {
+      selectBtn.textContent = getMsg('stopSelectBtn');
+      selectBtn.style.backgroundColor = '#d93025';
+      selectBtn.onclick = () => {
+        chrome.tabs.sendMessage(tab.id, { action: 'stopSelection' }, (response) => {
+          updateSelectButtonState(false);
+          refreshRules();
+        });
+      };
+    } else {
+      selectBtn.textContent = getMsg('selectBtn');
+      selectBtn.style.backgroundColor = '#1a73e8';
+      selectBtn.onclick = () => {
+        chrome.tabs.sendMessage(tab.id, { action: 'startSelection' }, (response) => {
+          if (chrome.runtime.lastError || !response) {
+            alert(getMsg('refreshWarning'));
+            return;
+          }
+          window.close();
+        });
+      };
+    }
+  }
+
+  // Get initial selection state
+  chrome.tabs.sendMessage(tab.id, { action: 'getSelectionState' }, (response) => {
+    if (chrome.runtime.lastError || !response) {
+      updateSelectButtonState(false);
+      return;
+    }
+    updateSelectButtonState(!!response.isSelecting);
+  });
 
   // Export Rules (all rules in chrome.storage.local)
   exportBtn.onclick = () => {
@@ -157,6 +182,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Listen for selection completion
   chrome.runtime.onMessage.addListener((request) => {
     if (request.action === 'selectionComplete') {
+      refreshRules();
+    } else if (request.action === 'selectionDisabled') {
+      updateSelectButtonState(false);
       refreshRules();
     }
   });

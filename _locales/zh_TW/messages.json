@@ -8,6 +8,9 @@
   "selectBtn": {
     "message": "選擇網頁元素進行屏蔽"
   },
+  "stopSelectBtn": {
+    "message": "停止選擇模式 (Esc)"
+  },
   "blockedTitle": {
     "message": "此網站已屏蔽的元素"
   },
