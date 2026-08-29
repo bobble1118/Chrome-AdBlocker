@@ -1,17 +1,4 @@
-// Helper to get localized string
-function getMsg(messageName) {
-  return chrome.i18n.getMessage(messageName);
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
-  // Translate UI elements
-  document.getElementById('app-name').textContent = getMsg('appName');
-  document.getElementById('select-btn').textContent = getMsg('selectBtn');
-  document.getElementById('local-rules-title').textContent = getMsg('localRulesTitle');
-  document.getElementById('global-rules-title').textContent = getMsg('globalRulesTitle');
-  document.getElementById('export-btn').textContent = getMsg('exportBtn');
-  document.getElementById('import-btn-label').textContent = getMsg('importBtn');
-
   const selectBtn = document.getElementById('select-btn');
   const localRulesList = document.getElementById('local-rules-list');
   const globalRulesList = document.getElementById('global-rules-list');
@@ -23,7 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Get current active tab
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !tab.url) {
-    domainInfo.textContent = getMsg('cannotRun');
+    domainInfo.textContent = "Cannot run on this page";
     selectBtn.disabled = true;
     return;
   }
@@ -32,14 +19,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     url = new URL(tab.url);
   } catch (e) {
-    domainInfo.textContent = getMsg('invalidUrl');
+    domainInfo.textContent = "Invalid URL";
     selectBtn.disabled = true;
     return;
   }
   
   // Only allow on http/https pages
   if (!url.protocol.startsWith('http')) {
-    domainInfo.textContent = getMsg('systemPage');
+    domainInfo.textContent = "Cannot run on system or extension pages";
     selectBtn.disabled = true;
     return;
   }
@@ -60,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderRulesList(listElement, rules, scope) {
     if (rules.length === 0) {
-      listElement.innerHTML = `<div class="empty-state">${getMsg('emptyState')}</div>`;
+      listElement.innerHTML = `<div class="empty-state">No elements blocked.</div>`;
       return;
     }
     
@@ -82,7 +69,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       convertBtn.className = 'action-btn';
       
       if (scope === 'local') {
-        convertBtn.textContent = getMsg('makeGlobalAction');
+        convertBtn.textContent = 'Make Global';
         convertBtn.onclick = () => {
           chrome.storage.local.get([hostname, 'global_rules'], (res) => {
             const local = (res[hostname] || []).filter(r => r !== rule);
@@ -99,7 +86,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           });
         };
       } else {
-        convertBtn.textContent = getMsg('makeLocalAction');
+        convertBtn.textContent = 'Make Local';
         convertBtn.onclick = () => {
           chrome.storage.local.get([hostname, 'global_rules'], (res) => {
             const global = (res['global_rules'] || []).filter(r => r !== rule);
@@ -156,7 +143,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function updateSelectButtonState(isSelecting) {
     isSelectingMode = isSelecting;
     if (isSelecting) {
-      selectBtn.textContent = getMsg('stopSelectBtn');
+      selectBtn.textContent = 'Stop Selection Mode (Esc)';
       selectBtn.style.backgroundColor = '#d93025';
       selectBtn.onclick = () => {
         chrome.tabs.sendMessage(tab.id, { action: 'stopSelection' }, (response) => {
@@ -165,12 +152,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
       };
     } else {
-      selectBtn.textContent = getMsg('selectBtn');
+      selectBtn.textContent = 'Select Element to Block';
       selectBtn.style.backgroundColor = '#1a73e8';
       selectBtn.onclick = () => {
         chrome.tabs.sendMessage(tab.id, { action: 'startSelection' }, (response) => {
           if (chrome.runtime.lastError || !response) {
-            alert(getMsg('refreshWarning'));
+            alert('Please refresh the page to activate the extension.');
             return;
           }
           window.close();
@@ -228,14 +215,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Save imported rules to chrome.storage.local (this will merge/overwrite keys)
         chrome.storage.local.set(parsed, () => {
-          alert(getMsg('importSuccess'));
+          alert('Rules imported successfully!');
           // Reload rules for current page
           refreshRules();
           // Reload tab stylesheet if matching
           chrome.tabs.reload(tab.id);
         });
       } catch (err) {
-        alert(getMsg('importError'));
+        alert('Invalid rules file format.');
       }
     };
     reader.readAsText(file);

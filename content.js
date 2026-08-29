@@ -243,7 +243,7 @@ function createIndicator() {
   `;
   
   const textSpan = document.createElement('span');
-  textSpan.textContent = chrome.i18n.getMessage('indicatorText') || 'Selection Mode Active (Press ESC to exit)';
+  textSpan.textContent = 'Selection Mode Active (Press ESC to exit)';
   textSpan.style.cssText = 'color: white !important; font-size: 13px !important; font-family: inherit !important;';
   
   // Scope selection toggle container
@@ -251,11 +251,11 @@ function createIndicator() {
   scopeContainer.style.cssText = 'display:flex; align-items:center; gap:4px; background-color:#3c4043; border-radius:14px; padding:2px; margin-right:4px;';
   
   const localOption = document.createElement('button');
-  localOption.textContent = chrome.i18n.getMessage('scopeLocal') || 'This Site';
+  localOption.textContent = 'This Site';
   localOption.style.cssText = 'background-color:#1a73e8; color:white; border:none; padding:4px 8px; border-radius:12px; cursor:pointer; font-size:11px; font-weight:bold; transition:background-color 0.15s; outline:none;';
   
   const globalOption = document.createElement('button');
-  globalOption.textContent = chrome.i18n.getMessage('scopeGlobal') || 'Global';
+  globalOption.textContent = 'Global';
   globalOption.style.cssText = 'background-color:transparent; color:#e8eaed; border:none; padding:4px 8px; border-radius:12px; cursor:pointer; font-size:11px; font-weight:bold; transition:background-color 0.15s; outline:none;';
   
   localOption.onclick = (e) => {
@@ -281,7 +281,7 @@ function createIndicator() {
 
   const undoBtn = document.createElement('button');
   undoBtn.id = 'clickblock-undo-btn';
-  undoBtn.textContent = chrome.i18n.getMessage('undoBtn') || 'Undo';
+  undoBtn.textContent = 'Undo';
   undoBtn.style.cssText = `
     background-color: #3c4043 !important;
     color: #e8eaed !important;
@@ -311,7 +311,7 @@ function createIndicator() {
   };
   
   const exitBtn = document.createElement('button');
-  exitBtn.textContent = chrome.i18n.getMessage('exitBtn') || 'Exit';
+  exitBtn.textContent = 'Exit';
   exitBtn.style.cssText = `
     background-color: #ea4335 !important;
     color: white !important;
