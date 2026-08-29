@@ -111,6 +111,23 @@
     .delete-btn:hover {
       color: #d93025;
     }
+    .action-btn {
+      background: none;
+      border: none;
+      color: #1a73e8;
+      cursor: pointer;
+      font-size: 10px;
+      font-weight: 500;
+      padding: 2px 6px;
+      margin-right: 4px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      transition: background-color 0.15s;
+    }
+    .action-btn:hover {
+      background-color: #e8f0fe;
+    }
     .empty-state {
       font-size: 12px;
       color: #80868b;
@@ -151,9 +168,14 @@
   
   <button class="main-btn" id="select-btn">Select Element to Block</button>
   
-  <div class="section-title" id="blocked-title">Blocked Elements on this Domain</div>
-  <ul id="rules-list">
-    <!-- Rules injected dynamically -->
+  <div class="section-title" id="local-rules-title">Blocked on this Site</div>
+  <ul id="local-rules-list">
+    <!-- Local Rules injected dynamically -->
+  </ul>
+
+  <div class="section-title" id="global-rules-title">Global Blocked Rules</div>
+  <ul id="global-rules-list">
+    <!-- Global Rules injected dynamically -->
   </ul>
 
   <div class="footer-actions">

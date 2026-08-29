@@ -49,5 +49,23 @@
   },
   "exitBtn": {
     "message": "Exit"
+  },
+  "scopeLocal": {
+    "message": "This Site"
+  },
+  "scopeGlobal": {
+    "message": "Global"
+  },
+  "localRulesTitle": {
+    "message": "Blocked on this Site"
+  },
+  "globalRulesTitle": {
+    "message": "Global Blocked Rules"
+  },
+  "makeGlobalAction": {
+    "message": "Make Global"
+  },
+  "makeLocalAction": {
+    "message": "Make Local"
   }
 }

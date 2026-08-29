@@ -7,12 +7,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Translate UI elements
   document.getElementById('app-name').textContent = getMsg('appName');
   document.getElementById('select-btn').textContent = getMsg('selectBtn');
-  document.getElementById('blocked-title').textContent = getMsg('blockedTitle');
+  document.getElementById('local-rules-title').textContent = getMsg('localRulesTitle');
+  document.getElementById('global-rules-title').textContent = getMsg('globalRulesTitle');
   document.getElementById('export-btn').textContent = getMsg('exportBtn');
   document.getElementById('import-btn-label').textContent = getMsg('importBtn');
 
   const selectBtn = document.getElementById('select-btn');
-  const rulesList = document.getElementById('rules-list');
+  const localRulesList = document.getElementById('local-rules-list');
+  const globalRulesList = document.getElementById('global-rules-list');
   const domainInfo = document.getElementById('domain-info');
   const exportBtn = document.getElementById('export-btn');
   const importBtnLabel = document.getElementById('import-btn-label');
@@ -45,43 +47,105 @@ document.addEventListener('DOMContentLoaded', async () => {
   const hostname = url.hostname;
   domainInfo.textContent = hostname;
   
-  // Load and display current rules
+  // Load and display current rules (local and global)
   function refreshRules() {
-    chrome.tabs.sendMessage(tab.id, { action: 'getBlockedRules' }, (response) => {
-      // If extension is newly installed or page not refreshed, content script might not respond
-      if (chrome.runtime.lastError || !response) {
-        rulesList.innerHTML = `<div class="empty-state">${getMsg('refreshWarning')}</div>`;
-        return;
-      }
+    chrome.storage.local.get([hostname, 'global_rules'], (result) => {
+      const localRules = result[hostname] || [];
+      const globalRules = result['global_rules'] || [];
       
-      const rules = response.rules || [];
-      if (rules.length === 0) {
-        rulesList.innerHTML = `<div class="empty-state">${getMsg('emptyState')}</div>`;
-        return;
-      }
+      renderRulesList(localRulesList, localRules, 'local');
+      renderRulesList(globalRulesList, globalRules, 'global');
+    });
+  }
+
+  function renderRulesList(listElement, rules, scope) {
+    if (rules.length === 0) {
+      listElement.innerHTML = `<div class="empty-state">${getMsg('emptyState')}</div>`;
+      return;
+    }
+    
+    listElement.innerHTML = '';
+    rules.forEach(rule => {
+      const li = document.createElement('li');
       
-      rulesList.innerHTML = '';
-      rules.forEach(rule => {
-        const li = document.createElement('li');
-        
-        const ruleSpan = document.createElement('span');
-        ruleSpan.className = 'rule-text';
-        ruleSpan.textContent = rule;
-        ruleSpan.title = rule;
-        
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'delete-btn';
-        deleteBtn.innerHTML = '&times;';
-        deleteBtn.onclick = () => {
-          chrome.tabs.sendMessage(tab.id, { action: 'removeRule', rule: rule }, (res) => {
-            refreshRules();
+      const ruleSpan = document.createElement('span');
+      ruleSpan.className = 'rule-text';
+      ruleSpan.textContent = rule;
+      ruleSpan.title = rule;
+      
+      const buttonsContainer = document.createElement('div');
+      buttonsContainer.style.display = 'flex';
+      buttonsContainer.style.alignItems = 'center';
+      
+      // Convert button (Make Global or Make Local)
+      const convertBtn = document.createElement('button');
+      convertBtn.className = 'action-btn';
+      
+      if (scope === 'local') {
+        convertBtn.textContent = getMsg('makeGlobalAction');
+        convertBtn.onclick = () => {
+          chrome.storage.local.get([hostname, 'global_rules'], (res) => {
+            const local = (res[hostname] || []).filter(r => r !== rule);
+            const global = res['global_rules'] || [];
+            if (!global.includes(rule)) {
+              global.push(rule);
+            }
+            chrome.storage.local.set({
+              [hostname]: local,
+              'global_rules': global
+            }, () => {
+              refreshRules();
+            });
           });
         };
-        
-        li.appendChild(ruleSpan);
-        li.appendChild(deleteBtn);
-        rulesList.appendChild(li);
-      });
+      } else {
+        convertBtn.textContent = getMsg('makeLocalAction');
+        convertBtn.onclick = () => {
+          chrome.storage.local.get([hostname, 'global_rules'], (res) => {
+            const global = (res['global_rules'] || []).filter(r => r !== rule);
+            const local = res[hostname] || [];
+            if (!local.includes(rule)) {
+              local.push(rule);
+            }
+            chrome.storage.local.set({
+              [hostname]: local,
+              'global_rules': global
+            }, () => {
+              refreshRules();
+            });
+          });
+        };
+      }
+      
+      // Delete button
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'delete-btn';
+      deleteBtn.innerHTML = '&times;';
+      
+      deleteBtn.onclick = () => {
+        if (scope === 'local') {
+          chrome.storage.local.get([hostname], (res) => {
+            const local = (res[hostname] || []).filter(r => r !== rule);
+            chrome.storage.local.set({ [hostname]: local }, () => {
+              refreshRules();
+            });
+          });
+        } else {
+          chrome.storage.local.get(['global_rules'], (res) => {
+            const global = (res['global_rules'] || []).filter(r => r !== rule);
+            chrome.storage.local.set({ 'global_rules': global }, () => {
+              refreshRules();
+            });
+          });
+        }
+      };
+      
+      buttonsContainer.appendChild(convertBtn);
+      buttonsContainer.appendChild(deleteBtn);
+      
+      li.appendChild(ruleSpan);
+      li.appendChild(buttonsContainer);
+      listElement.appendChild(li);
     });
   }
   

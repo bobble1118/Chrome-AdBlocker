@@ -1,6 +1,7 @@
 // Retrieve rules and apply them as early as possible
 const hostname = window.location.hostname;
 let blockedSelectors = [];
+let globalSelectors = [];
 let styleElement = null;
 
 // Apply styles to hide elements
@@ -10,8 +11,9 @@ function updateStylesheet() {
     // Use document.documentElement because document.head might not be parsed yet at document_start
     (document.head || document.documentElement).appendChild(styleElement);
   }
-  if (blockedSelectors.length > 0) {
-    const css = blockedSelectors.map(sel => `${sel} { display: none !important; }`).join('\n');
+  const combined = [...blockedSelectors, ...globalSelectors];
+  if (combined.length > 0) {
+    const css = combined.map(sel => `${sel} { display: none !important; }`).join('\n');
     styleElement.textContent = css;
   } else {
     styleElement.textContent = '';
@@ -19,10 +21,27 @@ function updateStylesheet() {
 }
 
 // Load existing rules from storage
-chrome.storage.local.get([hostname], (result) => {
-  if (result[hostname]) {
-    blockedSelectors = result[hostname];
-    updateStylesheet();
+chrome.storage.local.get([hostname, 'global_rules'], (result) => {
+  blockedSelectors = result[hostname] || [];
+  globalSelectors = result['global_rules'] || [];
+  updateStylesheet();
+});
+
+// Watch for storage changes to dynamically apply/restore styles instantly
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local') {
+    let needsUpdate = false;
+    if (changes[hostname]) {
+      blockedSelectors = changes[hostname].newValue || [];
+      needsUpdate = true;
+    }
+    if (changes['global_rules']) {
+      globalSelectors = changes['global_rules'].newValue || [];
+      needsUpdate = true;
+    }
+    if (needsUpdate) {
+      updateStylesheet();
+    }
   }
 });
 
@@ -43,6 +62,7 @@ let originalCursor = '';
 let iframeStyle = null;
 let sessionBlockedSelectors = [];
 let indicatorElement = null;
+let selectedScope = 'local';
 
 function preventDefaultAction(e) {
   if (isSelecting) {
@@ -93,16 +113,32 @@ function onClick(e) {
   const selector = generateUniqueSelector(element);
   
   if (selector) {
-    // Add to list and save
-    if (!blockedSelectors.includes(selector)) {
-      blockedSelectors.push(selector);
-      sessionBlockedSelectors.push(selector);
-      updateUndoButtonState();
-      chrome.storage.local.set({ [hostname]: blockedSelectors }, () => {
-        updateStylesheet();
-        // Notify popup/background that selection is complete
-        chrome.runtime.sendMessage({ action: 'selectionComplete', selector: selector });
-      });
+    if (selectedScope === 'local') {
+      if (!blockedSelectors.includes(selector)) {
+        blockedSelectors.push(selector);
+        sessionBlockedSelectors.push({ scope: 'local', selector: selector });
+        updateUndoButtonState();
+        chrome.storage.local.set({ [hostname]: blockedSelectors }, () => {
+          updateStylesheet();
+          chrome.runtime.sendMessage({ action: 'selectionComplete', selector: selector });
+        });
+      }
+    } else {
+      if (!globalSelectors.includes(selector)) {
+        globalSelectors.push(selector);
+        sessionBlockedSelectors.push({ scope: 'global', selector: selector });
+        updateUndoButtonState();
+        chrome.storage.local.get(['global_rules'], (res) => {
+          const rules = res.global_rules || [];
+          if (!rules.includes(selector)) {
+            rules.push(selector);
+          }
+          chrome.storage.local.set({ global_rules: rules }, () => {
+            updateStylesheet();
+            chrome.runtime.sendMessage({ action: 'selectionComplete', selector: selector });
+          });
+        });
+      }
     }
   }
   
@@ -210,6 +246,39 @@ function createIndicator() {
   textSpan.textContent = chrome.i18n.getMessage('indicatorText') || 'Selection Mode Active (Press ESC to exit)';
   textSpan.style.cssText = 'color: white !important; font-size: 13px !important; font-family: inherit !important;';
   
+  // Scope selection toggle container
+  const scopeContainer = document.createElement('div');
+  scopeContainer.style.cssText = 'display:flex; align-items:center; gap:4px; background-color:#3c4043; border-radius:14px; padding:2px; margin-right:4px;';
+  
+  const localOption = document.createElement('button');
+  localOption.textContent = chrome.i18n.getMessage('scopeLocal') || 'This Site';
+  localOption.style.cssText = 'background-color:#1a73e8; color:white; border:none; padding:4px 8px; border-radius:12px; cursor:pointer; font-size:11px; font-weight:bold; transition:background-color 0.15s; outline:none;';
+  
+  const globalOption = document.createElement('button');
+  globalOption.textContent = chrome.i18n.getMessage('scopeGlobal') || 'Global';
+  globalOption.style.cssText = 'background-color:transparent; color:#e8eaed; border:none; padding:4px 8px; border-radius:12px; cursor:pointer; font-size:11px; font-weight:bold; transition:background-color 0.15s; outline:none;';
+  
+  localOption.onclick = (e) => {
+    e.preventDefault();
+    selectedScope = 'local';
+    localOption.style.backgroundColor = '#1a73e8';
+    localOption.style.color = 'white';
+    globalOption.style.backgroundColor = 'transparent';
+    globalOption.style.color = '#e8eaed';
+  };
+  
+  globalOption.onclick = (e) => {
+    e.preventDefault();
+    selectedScope = 'global';
+    globalOption.style.backgroundColor = '#1a73e8';
+    globalOption.style.color = 'white';
+    localOption.style.backgroundColor = 'transparent';
+    localOption.style.color = '#e8eaed';
+  };
+  
+  scopeContainer.appendChild(localOption);
+  scopeContainer.appendChild(globalOption);
+
   const undoBtn = document.createElement('button');
   undoBtn.id = 'clickblock-undo-btn';
   undoBtn.textContent = chrome.i18n.getMessage('undoBtn') || 'Undo';
@@ -268,6 +337,7 @@ function createIndicator() {
   };
   
   indicatorElement.appendChild(textSpan);
+  indicatorElement.appendChild(scopeContainer);
   indicatorElement.appendChild(undoBtn);
   indicatorElement.appendChild(exitBtn);
   
@@ -299,19 +369,30 @@ function updateUndoButtonState() {
 
 function undoLastBlocked() {
   if (sessionBlockedSelectors.length === 0) return;
-  const lastSelector = sessionBlockedSelectors.pop();
-  blockedSelectors = blockedSelectors.filter(s => s !== lastSelector);
+  const lastItem = sessionBlockedSelectors.pop();
   
-  chrome.storage.local.set({ [hostname]: blockedSelectors }, () => {
-    updateStylesheet();
-    updateUndoButtonState();
-    chrome.runtime.sendMessage({ action: 'selectionComplete' });
-  });
+  if (lastItem.scope === 'local') {
+    blockedSelectors = blockedSelectors.filter(s => s !== lastItem.selector);
+    chrome.storage.local.set({ [hostname]: blockedSelectors }, () => {
+      updateUndoButtonState();
+      chrome.runtime.sendMessage({ action: 'selectionComplete' });
+    });
+  } else {
+    globalSelectors = globalSelectors.filter(s => s !== lastItem.selector);
+    chrome.storage.local.get(['global_rules'], (res) => {
+      const rules = (res.global_rules || []).filter(s => s !== lastItem.selector);
+      chrome.storage.local.set({ global_rules: rules }, () => {
+        updateUndoButtonState();
+        chrome.runtime.sendMessage({ action: 'selectionComplete' });
+      });
+    });
+  }
 }
 
 function enableSelectionMode() {
   isSelecting = true;
   sessionBlockedSelectors = [];
+  selectedScope = 'local'; // Reset default scope to local on each activation
   document.addEventListener('mouseover', onMouseOver, true);
   document.addEventListener('mouseout', onMouseOut, true);
   document.addEventListener('click', onClick, true);
