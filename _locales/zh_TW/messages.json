@@ -1,0 +1,41 @@
+{
+  "appName": {
+    "message": "ClickBlock 網頁任意門：自訂廣告與元素移除器"
+  },
+  "appDesc": {
+    "message": "永久移除網頁上任何您不想看到的元素或廣告。一鍵點擊屏蔽，下次打開自動隱藏。"
+  },
+  "selectBtn": {
+    "message": "選擇網頁元素進行屏蔽"
+  },
+  "blockedTitle": {
+    "message": "此網站已屏蔽的元素"
+  },
+  "emptyState": {
+    "message": "此網站目前沒有屏蔽任何元素。"
+  },
+  "refreshWarning": {
+    "message": "請重新整理網頁以啟用擴充功能。"
+  },
+  "exportBtn": {
+    "message": "匯出規則"
+  },
+  "importBtn": {
+    "message": "匯入規則"
+  },
+  "importSuccess": {
+    "message": "規則匯入成功！"
+  },
+  "importError": {
+    "message": "無效的規則檔案格式。"
+  },
+  "cannotRun": {
+    "message": "無法在此頁面運行"
+  },
+  "invalidUrl": {
+    "message": "無效的網址"
+  },
+  "systemPage": {
+    "message": "無法在系統或擴充功能頁面運行"
+  }
+}
