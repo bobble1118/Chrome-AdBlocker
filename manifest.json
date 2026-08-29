@@ -5,7 +5,8 @@
   "description": "__MSG_appDesc__",
   "default_locale": "en",
   "permissions": [
-    "storage"
+    "storage",
+    "activeTab"
   ],
   "action": {
     "default_popup": "popup.html",
