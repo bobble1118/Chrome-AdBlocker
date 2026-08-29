@@ -19,15 +19,15 @@ ClickBlock is a lightweight, localization-ready, privacy-centric Google Chrome e
 
 ```mermaid
 graph TD
-    A[User Clicks Extension Icon] --> B[Click "Select Element to Block"]
+    A[User Clicks Extension Icon] --> B["Click 'Select Element to Block'"]
     B --> C[Active Tab Enters Hover Selection Mode]
-    C --> D[User Selects & Clicks Annoying Element]
-    D --> E[CSS Selector Traversal & ID-Ancestor Check]
+    C --> D[User Selects and Clicks Annoying Element]
+    D --> E[CSS Selector Traversal and ID-Ancestor Check]
     E --> F[Rule Saved to chrome.storage.local]
     F --> G[Stylesheet Updated Dynamically]
     H[Page Load] --> I[content.js Runs at document_start]
     I --> J[Fetch Rules from storage]
-    J --> K[Inject CSS Display: None]
+    J --> K["Inject CSS (Display: None)"]
 ```
 
 ### 1. The Selector Traversal Algorithm
