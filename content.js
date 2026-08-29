@@ -336,6 +336,13 @@ function disableSelectionMode() {
   document.removeEventListener('mouseup', preventDefaultAction, true);
   document.removeEventListener('keydown', onKeyDown, true);
   
+  // Reset style of the currently hovered element if selection mode is stopped
+  if (hoveredElement) {
+    hoveredElement.style.outline = originalOutline;
+    hoveredElement.style.cursor = originalCursor;
+    hoveredElement = null;
+  }
+  
   if (iframeStyle) {
     iframeStyle.remove();
     iframeStyle = null;
