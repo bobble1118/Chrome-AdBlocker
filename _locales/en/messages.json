@@ -40,5 +40,14 @@
   },
   "systemPage": {
     "message": "Cannot run on system or extension pages"
+  },
+  "indicatorText": {
+    "message": "Selection Mode Active (Press ESC to exit)"
+  },
+  "undoBtn": {
+    "message": "Undo"
+  },
+  "exitBtn": {
+    "message": "Exit"
   }
 }

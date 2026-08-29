@@ -41,9 +41,12 @@ let hoveredElement = null;
 let originalOutline = '';
 let originalCursor = '';
 let iframeStyle = null;
+let sessionBlockedSelectors = [];
+let indicatorElement = null;
 
 function preventDefaultAction(e) {
   if (isSelecting) {
+    if (e.target.closest('#clickblock-indicator')) return;
     e.preventDefault();
     e.stopPropagation();
   }
@@ -52,6 +55,7 @@ function preventDefaultAction(e) {
 
 function onMouseOver(e) {
   if (!isSelecting) return;
+  if (e.target.closest('#clickblock-indicator')) return;
   
   // Clean up previous element highlight
   if (hoveredElement && hoveredElement !== e.target) {
@@ -70,6 +74,7 @@ function onMouseOver(e) {
 
 function onMouseOut(e) {
   if (!isSelecting || !hoveredElement) return;
+  if (e.target.closest('#clickblock-indicator')) return;
   if (e.target === hoveredElement) {
     hoveredElement.style.outline = originalOutline;
     hoveredElement.style.cursor = originalCursor;
@@ -79,6 +84,7 @@ function onMouseOut(e) {
 
 function onClick(e) {
   if (!isSelecting) return;
+  if (e.target.closest('#clickblock-indicator')) return;
   
   e.preventDefault();
   e.stopPropagation();
@@ -90,6 +96,8 @@ function onClick(e) {
     // Add to list and save
     if (!blockedSelectors.includes(selector)) {
       blockedSelectors.push(selector);
+      sessionBlockedSelectors.push(selector);
+      updateUndoButtonState();
       chrome.storage.local.set({ [hostname]: blockedSelectors }, () => {
         updateStylesheet();
         // Notify popup/background that selection is complete
@@ -170,8 +178,140 @@ function onKeyDown(e) {
   }
 }
 
+function createIndicator() {
+  if (indicatorElement) return;
+  
+  indicatorElement = document.createElement('div');
+  indicatorElement.id = 'clickblock-indicator';
+  
+  indicatorElement.style.cssText = `
+    position: fixed !important;
+    top: 16px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    background-color: #202124 !important;
+    color: white !important;
+    padding: 8px 16px !important;
+    border-radius: 30px !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+    z-index: 2147483647 !important;
+    pointer-events: auto !important;
+    letter-spacing: 0.5px !important;
+    user-select: none !important;
+  `;
+  
+  const textSpan = document.createElement('span');
+  textSpan.textContent = chrome.i18n.getMessage('indicatorText') || 'Selection Mode Active (Press ESC to exit)';
+  textSpan.style.cssText = 'color: white !important; font-size: 13px !important; font-family: inherit !important;';
+  
+  const undoBtn = document.createElement('button');
+  undoBtn.id = 'clickblock-undo-btn';
+  undoBtn.textContent = chrome.i18n.getMessage('undoBtn') || 'Undo';
+  undoBtn.style.cssText = `
+    background-color: #3c4043 !important;
+    color: #e8eaed !important;
+    border: 1px solid #5f6368 !important;
+    padding: 5px 12px !important;
+    border-radius: 16px !important;
+    cursor: pointer !important;
+    font-size: 11px !important;
+    font-weight: bold !important;
+    transition: background-color 0.15s !important;
+    outline: none !important;
+  `;
+  undoBtn.disabled = true;
+  undoBtn.style.opacity = '0.5';
+  undoBtn.style.cursor = 'not-allowed';
+  
+  undoBtn.addEventListener('mouseenter', () => {
+    if (!undoBtn.disabled) undoBtn.style.backgroundColor = '#5f6368';
+  });
+  undoBtn.addEventListener('mouseleave', () => {
+    if (!undoBtn.disabled) undoBtn.style.backgroundColor = '#3c4043';
+  });
+  undoBtn.onclick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    undoLastBlocked();
+  };
+  
+  const exitBtn = document.createElement('button');
+  exitBtn.textContent = chrome.i18n.getMessage('exitBtn') || 'Exit';
+  exitBtn.style.cssText = `
+    background-color: #ea4335 !important;
+    color: white !important;
+    border: none !important;
+    padding: 5px 12px !important;
+    border-radius: 16px !important;
+    cursor: pointer !important;
+    font-size: 11px !important;
+    font-weight: bold !important;
+    transition: background-color 0.15s !important;
+    outline: none !important;
+  `;
+  exitBtn.addEventListener('mouseenter', () => {
+    exitBtn.style.backgroundColor = '#d93025';
+  });
+  exitBtn.addEventListener('mouseleave', () => {
+    exitBtn.style.backgroundColor = '#ea4335';
+  });
+  exitBtn.onclick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    disableSelectionMode();
+  };
+  
+  indicatorElement.appendChild(textSpan);
+  indicatorElement.appendChild(undoBtn);
+  indicatorElement.appendChild(exitBtn);
+  
+  document.body.appendChild(indicatorElement);
+}
+
+function removeIndicator() {
+  if (indicatorElement) {
+    indicatorElement.remove();
+    indicatorElement = null;
+  }
+}
+
+function updateUndoButtonState() {
+  const undoBtn = document.getElementById('clickblock-undo-btn');
+  if (undoBtn) {
+    const hasHistory = sessionBlockedSelectors.length > 0;
+    undoBtn.disabled = !hasHistory;
+    if (hasHistory) {
+      undoBtn.style.opacity = '1.0';
+      undoBtn.style.cursor = 'pointer';
+      undoBtn.style.backgroundColor = '#3c4043';
+    } else {
+      undoBtn.style.opacity = '0.5';
+      undoBtn.style.cursor = 'not-allowed';
+    }
+  }
+}
+
+function undoLastBlocked() {
+  if (sessionBlockedSelectors.length === 0) return;
+  const lastSelector = sessionBlockedSelectors.pop();
+  blockedSelectors = blockedSelectors.filter(s => s !== lastSelector);
+  
+  chrome.storage.local.set({ [hostname]: blockedSelectors }, () => {
+    updateStylesheet();
+    updateUndoButtonState();
+    chrome.runtime.sendMessage({ action: 'selectionComplete' });
+  });
+}
+
 function enableSelectionMode() {
   isSelecting = true;
+  sessionBlockedSelectors = [];
   document.addEventListener('mouseover', onMouseOver, true);
   document.addEventListener('mouseout', onMouseOut, true);
   document.addEventListener('click', onClick, true);
@@ -183,6 +323,8 @@ function enableSelectionMode() {
   iframeStyle = document.createElement('style');
   iframeStyle.textContent = 'iframe { pointer-events: none !important; }';
   (document.head || document.documentElement).appendChild(iframeStyle);
+  
+  createIndicator();
 }
 
 function disableSelectionMode() {
@@ -198,6 +340,8 @@ function disableSelectionMode() {
     iframeStyle.remove();
     iframeStyle = null;
   }
+  
+  removeIndicator();
   
   // Notify runtime that selection mode has stopped
   chrome.runtime.sendMessage({ action: 'selectionDisabled' });

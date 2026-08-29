@@ -40,5 +40,14 @@
   },
   "systemPage": {
     "message": "無法在系統或擴充功能頁面運行"
+  },
+  "indicatorText": {
+    "message": "選取屏蔽模式中 (按 ESC 鍵結束)"
+  },
+  "undoBtn": {
+    "message": "復原上一步"
+  },
+  "exitBtn": {
+    "message": "結束"
   }
 }
