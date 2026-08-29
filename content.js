@@ -40,6 +40,15 @@ let isSelecting = false;
 let hoveredElement = null;
 let originalOutline = '';
 let originalCursor = '';
+let iframeStyle = null;
+
+function preventDefaultAction(e) {
+  if (isSelecting) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+}
+
 
 function onMouseOver(e) {
   if (!isSelecting) return;
@@ -159,6 +168,13 @@ function enableSelectionMode() {
   document.addEventListener('mouseover', onMouseOver, true);
   document.addEventListener('mouseout', onMouseOut, true);
   document.addEventListener('click', onClick, true);
+  document.addEventListener('mousedown', preventDefaultAction, true);
+  document.addEventListener('mouseup', preventDefaultAction, true);
+  
+  // Inject CSS to disable pointer events on iframes so they can be selected as elements
+  iframeStyle = document.createElement('style');
+  iframeStyle.textContent = 'iframe { pointer-events: none !important; }';
+  (document.head || document.documentElement).appendChild(iframeStyle);
 }
 
 function disableSelectionMode() {
@@ -166,6 +182,13 @@ function disableSelectionMode() {
   document.removeEventListener('mouseover', onMouseOver, true);
   document.removeEventListener('mouseout', onMouseOut, true);
   document.removeEventListener('click', onClick, true);
+  document.removeEventListener('mousedown', preventDefaultAction, true);
+  document.removeEventListener('mouseup', preventDefaultAction, true);
+  
+  if (iframeStyle) {
+    iframeStyle.remove();
+    iframeStyle = null;
+  }
 }
 
 // Listen for messages from popup
